@@ -13,7 +13,6 @@ import (
 	"github.com/kuadrant/authorino/pkg/auth"
 	"github.com/kuadrant/authorino/pkg/context"
 	"github.com/kuadrant/authorino/pkg/evaluators"
-	"github.com/kuadrant/authorino/pkg/expressions/cel"
 	"github.com/kuadrant/authorino/pkg/json"
 	"github.com/kuadrant/authorino/pkg/jsonexp"
 	"github.com/kuadrant/authorino/pkg/log"
@@ -533,7 +532,7 @@ func (pipeline *AuthPipeline) metricLabels() map[string]string {
 				// Could be a CEL expression wrapper { "cel_expr": "<expr>" }
 				if celExprField, ok := kind.StructValue.Fields["cel_expr"]; ok {
 					if exprStr := celExprField.GetStringValue(); exprStr != "" {
-						expr, err := cel.NewExpression(exprStr)
+						expr, err := metricLabelExpressions.GetOrCompile(exprStr)
 						if err != nil {
 							pipeline.Logger.Error(err, "failed to parse CEL expression", "expression", exprStr)
 							continue
