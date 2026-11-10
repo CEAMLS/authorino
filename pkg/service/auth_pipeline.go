@@ -13,6 +13,7 @@ import (
 	"github.com/kuadrant/authorino/pkg/auth"
 	"github.com/kuadrant/authorino/pkg/context"
 	"github.com/kuadrant/authorino/pkg/evaluators"
+	"github.com/kuadrant/authorino/pkg/expressions/cel"
 	"github.com/kuadrant/authorino/pkg/json"
 	"github.com/kuadrant/authorino/pkg/jsonexp"
 	"github.com/kuadrant/authorino/pkg/log"
@@ -516,6 +517,10 @@ func (pipeline *AuthPipeline) metricLabels() map[string]string {
 	// Check for custom labels via the heuristic path
 	filteredMetadata := pipeline.GetRequest().GetAttributes().GetMetadataContext().GetFilterMetadata()
 	if customLabels, ok := filteredMetadata["io.kuadrant.metrics.labels"]; ok {
+		// Built on the first label that needs it, then used for the others.
+		var celInput map[string]interface{}
+		var celInputErr error
+		var celInputBuilt bool
 		for k, v := range customLabels.Fields {
 			switch kind := v.Kind.(type) {
 			case *structpb.Value_StringValue:
@@ -537,7 +542,15 @@ func (pipeline *AuthPipeline) metricLabels() map[string]string {
 							pipeline.Logger.Error(err, "failed to parse CEL expression", "expression", exprStr)
 							continue
 						}
-						value, err := expr.ResolveFor(pipeline.GetAuthorizationJSON())
+						if !celInputBuilt {
+							celInput, celInputErr = cel.AuthJsonToCel(pipeline.GetAuthorizationJSON())
+							celInputBuilt = true
+						}
+						if celInputErr != nil {
+							pipeline.Logger.Error(celInputErr, "failed to evaluate CEL expression", "expression", exprStr)
+							continue
+						}
+						value, err := expr.ResolveForInput(celInput)
 						if err != nil {
 							pipeline.Logger.Error(err, "failed to evaluate CEL expression", "expression", exprStr)
 							continue

@@ -78,6 +78,21 @@ func (e *Expression) ResolveFor(json string) (interface{}, error) {
 	}
 }
 
+// ResolveForInput is ResolveFor with an input that AuthJsonToCel made
+// before. Use it to evaluate many expressions against one authorization
+// JSON and parse the JSON only once.
+func (e *Expression) ResolveForInput(input map[string]interface{}) (interface{}, error) {
+	result, _, err := e.program.Eval(input)
+	if err != nil {
+		return nil, err
+	}
+	if jsonLiteral, err := ValueToJSON(result); err != nil {
+		return nil, err
+	} else {
+		return gjson.Parse(jsonLiteral).Value(), nil
+	}
+}
+
 func (e *Expression) Evaluate(json string) (ref.Val, *cel.EvalDetails, error) {
 	input, err := AuthJsonToCel(json)
 	if err != nil {

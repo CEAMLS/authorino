@@ -72,3 +72,25 @@ func TestExpression(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, v, "none")
 }
+
+func TestExpressionResolveForInput(t *testing.T) {
+	json := `{"request":{"method":"GET","host":"my-api"},"auth":{"identity":{"username":"john"}}}`
+	input, err := AuthJsonToCel(json)
+	assert.NilError(t, err)
+
+	// Many expressions, one parsed input, the same values as ResolveFor.
+	for _, source := range []string{`request.method`, `auth.identity.username`, `request.host == "my-api"`} {
+		expression, err := NewExpression(source)
+		assert.NilError(t, err)
+		want, err := expression.ResolveFor(json)
+		assert.NilError(t, err)
+		got, err := expression.ResolveForInput(input)
+		assert.NilError(t, err)
+		assert.DeepEqual(t, want, got)
+	}
+
+	expression, err := NewExpression(`auth.nonexistent.value`)
+	assert.NilError(t, err)
+	_, err = expression.ResolveForInput(input)
+	assert.Check(t, err != nil)
+}
